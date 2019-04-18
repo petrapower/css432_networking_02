@@ -212,12 +212,10 @@ int ClientStopWait(UdpSocket &sock, int max, int message[])
             else{
                 gotAck = true;
             }
-            // don't have ack --> retransmit message
-            // redo this loop turn
-            if(!gotAck)
-            {
+//            if(!gotAck)
+//            {
 //                std::cout << "Retransmitting " << i << std::endl;
-            }
+//            }
         } while (!gotAck);
 
         sock.recvFrom((char *) &ack, sizeof(ack));
