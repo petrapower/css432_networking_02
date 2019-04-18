@@ -9,7 +9,7 @@
 
 #include <sys/time.h>
 #include <iostream>
-using namespace std;
+//using namespace std;
 
 class Timer 
 {

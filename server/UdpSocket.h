@@ -16,7 +16,7 @@
 #include <string.h>       // for bzero( )
 #include <sys/poll.h>     // for poll( )
 #include <iostream>
-using namespace std;
+//using namespace std;
 
 const int MSGSIZE = 1460;    // UDP message size in bytes
 const int NULL_SD = -1;       

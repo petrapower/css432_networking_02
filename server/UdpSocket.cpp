@@ -13,18 +13,18 @@ UdpSocket::UdpSocket( int port )
     // Open a UDP socket (a datagram socket )
     if((sd = socket( AF_INET, SOCK_DGRAM, 0 )) < 0 ) 
     {
-        cerr << "Cannot open a UDP socket." << endl;
+        std::cerr << "Cannot open a UDP socket." << std::endl;
     }
 
     // Bind our local address
     bzero((char*)&myAddr, sizeof( myAddr )); 
     myAddr.sin_family = AF_INET;         
     myAddr.sin_addr.s_addr = htonl(INADDR_ANY); 
-    myAddr.sin_port        = htons( port );    
-    
-    if( bind( sd, (sockaddr*)&myAddr, sizeof( myAddr ) ) < 0 ) 
+    myAddr.sin_port        = htons( port );
+
+    if( bind( sd, (sockaddr*)&myAddr, sizeof( myAddr ) ) < 0 )
     {
-        cerr << "Cannot bind the local address to the UDP socket." << endl;
+        std::cerr << "Cannot bind the local address to the UDP socket." << std::endl;
     }
 }
 
@@ -43,7 +43,7 @@ bool UdpSocket::setDestAddress( char ipName[] )
     struct hostent* host = gethostbyname(ipName);
     if( host == NULL ) 
     {
-        cerr << "Cannot find hostname." << endl;
+        std::cerr << "Cannot find hostname." << std::endl;
         return false; 
     }
 
@@ -65,7 +65,7 @@ bool UdpSocket::setDestAddress(char ipName[], int destPort)
     struct hostent* host = gethostbyname( ipName );
     if( host == NULL ) 
     {
-        cerr << "Cannot find hostname." << endl;
+        std::cerr << "Cannot find hostname." << std::endl;
         return false;  
     }
 

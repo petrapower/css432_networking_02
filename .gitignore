@@ -5,8 +5,8 @@
 .DS_Store
 
 #project-specific
-client_inclass_1/.idea/
-server_inclass_1/.idea/
+*/.idea/
+*/.idea/
 
 # User-specific stuff
 .idea/**/workspace.xml
