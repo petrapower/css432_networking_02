@@ -4,8 +4,8 @@
 //using namespace std;
 
 const int PORT = 40385;       // my UDP port
-const int MAX = 50;        // times of message transfer
-const int MAX_WIN = 6;       // maximum window size
+const int MAX = 20000;        // times of message transfer
+const int MAX_WIN = 30;       // maximum window size
 const bool verbose = false;   //use verbose mode for more information during run
 
 // client packet sending functions
@@ -178,51 +178,30 @@ void ServerUnreliable(UdpSocket &sock, int max, int message[])
 int ClientStopWait(UdpSocket &sock, int max, int message[])
 {
     int msgRetransmitCount = 0;
-    bool gotAck = false;
     int ack = -1;
 
-    for (int i = 0; i < max; i++)
+    for (int sequence = 0; sequence < max; )
     {
-        do
-        {
-            message[0] = i;
-            sock.sendTo((char *) message, MSGSIZE);
+        message[0] = sequence;
+        sock.sendTo((char *) message, MSGSIZE);
 
-            // check if server sent ack immediately
-            if (sock.pollRecvFrom() == 0)
+        Timer timer;
+        timer.Start();
+        while(timer.End() < 1500)
+        {
+            if(sock.pollRecvFrom() > 0)
             {
-                std::cout << "No ACK yet" << std::endl;
-                Timer timer;
-                timer.Start();
-                while (timer.End() < 1500)
+                sock.recvFrom((char *) &ack, sizeof(ack));
+                if(ack == sequence)
                 {
-                    if (sock.pollRecvFrom() > 0)
-                    {
-                        std::cout << "Got ACK!" << std::endl;
-                        gotAck = true;
-                        break;
-                    }
-                        std::cout << "Still no ACK" << std::endl;
+                    sequence++;
+                    break;
                 }
             }
-            else
-            {
-                gotAck = true;
-            }
-            if(!gotAck)
-            {
-                std::cout << "Retransmitting " << i << std::endl;
-                msgRetransmitCount++;
-            }
-        } while (!gotAck);
-
-        sock.recvFrom((char *) &ack, sizeof(ack));
-        std::cout << "ACK " << i << " received" << std::endl;
-
-        if (verbose)
-        {
-            std::cerr << "message = " << message[0] << std::endl;;
         }
+
+        // not incrementing sequence, resending the same message
+        msgRetransmitCount++;
     }
     return msgRetransmitCount;
 }
@@ -234,13 +213,6 @@ int ClientSlidingWindow(UdpSocket &sock, int max, int message[], int windowSize)
     // measure in bits (Mb, Gb, whatever, but not bytes)
     // 20,000 * 1460 * 8 / time is takes
 
-    // TODO: slides
-    // today's lecture Slide 1 or 2 or something
-
-    std::cout << std::endl;
-    std::cout << "WINDOW SIZE " << windowSize << std::endl;
-    std::cout << std::endl;
-
     int msgRetransmitCount = 0;
     int lastReceivedAck = -1;
     int expectedSeqAck = 0;
@@ -249,29 +221,29 @@ int ClientSlidingWindow(UdpSocket &sock, int max, int message[], int windowSize)
     {
         if( expectedSeqAck + windowSize > seqToSend && seqToSend < max)
         {
-            std::cout << "- Inside window" << std::endl;
+//            std::cout << "- Inside window" << std::endl;
             message[0] = seqToSend;
             sock.sendTo((char *) message, MSGSIZE);
 
             if(sock.pollRecvFrom() > 0)
             {
-                std::cout << "-- Ack received immediately" << std::endl;
+//                std::cout << "-- Ack received immediately" << std::endl;
                 sock.recvFrom((char *) &lastReceivedAck, sizeof(lastReceivedAck));
                 if(lastReceivedAck == expectedSeqAck)
                 {
-                    std::cout << "--- Ack received == Ack expected " << lastReceivedAck <<
-                                                                                     std::endl;
+//                    std::cout << "--- Ack received == Ack expected "
+//                              << lastReceivedAck << std::endl;
                     expectedSeqAck++;
                 }
             }
             seqToSend++;
-            std::cout << "- Increasing seqToSend inside window to " << seqToSend <<
-                                                                                std::endl;
+//            std::cout << "- Increasing seqToSend inside window to "
+//                      << seqToSend << std::endl;
         }
         else
         {
             // timeout
-            std::cout << "- Inside timeout" << std::endl;
+//            std::cout << "- Inside timeout" << std::endl;
             bool gotAck = false;
             Timer timer;
             timer.Start();
@@ -280,24 +252,23 @@ int ClientSlidingWindow(UdpSocket &sock, int max, int message[], int windowSize)
                 if(sock.pollRecvFrom() > 0)
                 {
                     sock.recvFrom((char *) &lastReceivedAck, sizeof(lastReceivedAck));
-                    std::cout << "--- Ack received in timeout " << lastReceivedAck <<
-                                                                                std::endl;
+//                    std::cout << "--- Ack received in timeout " << lastReceivedAck
+//                              << std::endl;
                     if(lastReceivedAck >= expectedSeqAck)
                     {
                         expectedSeqAck = lastReceivedAck + 1;
-                        std::cout << "---- Ack >= expected => next expected is " <<
-                                                                          expectedSeqAck << std::endl;
+//                        std::cout << "---- Ack >= expected => next expected is "
+//                                  << expectedSeqAck << std::endl;
                         gotAck = true;
                         break;
                     }
                     else
                     {
-                        std::cout << "--- Ack < expected => resending " <<
-                                                                       expectedSeqAck <<
-                                                                              std::endl;
-                        message[0] = seqToSend; // seqToSend or expectedSeqAck
+//                        std::cout << "--- Ack < expected => resending "
+//                                  << expectedSeqAck << std::endl;
+                        message[0] = expectedSeqAck; // seqToSend or expectedSeqAck
                         sock.sendTo((char *) message, MSGSIZE);
-                        std::cout << "--- retransmitting in timeout" << std::endl;
+//                        std::cout << "--- retransmitting in timeout" << std::endl;
                         msgRetransmitCount++;
                     }
                 }
@@ -305,10 +276,9 @@ int ClientSlidingWindow(UdpSocket &sock, int max, int message[], int windowSize)
             if(!gotAck)
             {
                 // no ack received in timeout
-                std::cout << "-- No ack received in timeout - retransmitting " <<
-                                                                       expectedSeqAck <<
-                          std::endl;
-                message[0] = expectedSeqAck;
+//                std::cout << "-- No ack received in timeout - retransmitting "
+//                          << seqToSend << std::endl;
+                message[0] = seqToSend;
                 sock.sendTo((char *) message, MSGSIZE);
                 msgRetransmitCount++;
             }

@@ -4,8 +4,8 @@
 //using namespace std;
 
 const int PORT = 40385;       // my UDP port
-const int MAX = 50;        // times of message transfer
-const int MAX_WIN = 6;       // maximum window size
+const int MAX = 20000;        // times of message transfer
+const int MAX_WIN = 30;       // maximum window size
 const bool verbose = false;   //use verbose mode for more information during run
 
 // client packet sending functions
@@ -172,7 +172,7 @@ void ServerUnreliable(UdpSocket &sock, int max, int message[])
             std::cerr << message[0] << std::endl;
         }
     }
-    std::cout << max << " messages received" << std::endl;
+//    std::cout << max << " messages received" << std::endl;
 }
 
 int ClientStopWait(UdpSocket &sock, int max, int message[])
@@ -189,13 +189,22 @@ int ClientSlidingWindow(UdpSocket &sock, int max, int message[], int windowSize)
 
 void ServerReliable(UdpSocket &sock, int max, int message[])
 {
-    for (int i = 0; i < max; i++)
+    int ackToSend = -1;
+
+    for (int sequence = 0; sequence < max; )
     {
         // get message from client
         sock.recvFrom((char *) message, MSGSIZE);
-        // set ack = sequence number
-        int ack = message[0];
-        sock.ackTo((char *) &ack, sizeof(ack));
+
+        // check if expected message seq number came
+        if(message[0] == sequence)
+        {
+            int ack = message[0];
+            sock.ackTo((char *) &ack, sizeof(ack));
+            sequence++;
+        }
+        // else wait for the same sequence
+
         if (verbose)
         {
             std::cerr << message[0] << std::endl;;
@@ -216,39 +225,38 @@ void ServerEarlyRetrans(UdpSocket &sock, int max, int message[], int windowSize)
         msgsReceived[i] = false;
     }
 
-    std::cout << std::endl;
-    std::cout << "WINDOW SIZE " << windowSize << std::endl;
-    std::cout << std::endl;
+//    std::cout << std::endl;
+//    std::cout << "WINDOW SIZE " << windowSize << std::endl;
+//    std::cout << std::endl;
 
     // until the expected number of messages is received
     for( seqExpected = 0; seqExpected < max; )
     {
         sock.recvFrom((char *) message, MSGSIZE);
-        std::cout << "current newest received - start of loop "
-                  << message[0] << std::endl;
-        std::cout << "newest sequence expected " << seqExpected << std::endl;
+//        std::cout << "current newest received - start of loop "
+//                  << message[0] << std::endl;
+//        std::cout << "newest sequence expected " << seqExpected << std::endl;
 
         if(message[0] == seqExpected)
         {
-            std::cout << "- received in order we wanted " << seqExpected << std::endl;
+//            std::cout << "- received in order we wanted " << seqExpected << std::endl;
             msgsReceived[seqExpected] = true;
 
             for(int i = seqExpected; i < max; i++)
             {
-                std::cout << "-- scanning "
-                          << seqExpected << ", value is "
-                          << msgsReceived[seqExpected] << std::endl;
+//                std::cout << "-- scanning "
+//                          << seqExpected << ", value is "
+//                          << msgsReceived[seqExpected] << std::endl;
                 if(msgsReceived[i])
                 {
-                    std::cout << "--- found true " << i << std::endl;
+//                    std::cout << "--- found true " << i << std::endl;
                     cumulativeAck = i;
                     seqExpected = i + 1;
                 }
                 else
                 {
-                    std::cout << "--- found false, breaking out at next "
-                              << seqExpected
-                              << std::endl;
+//                    std::cout << "--- found false, breaking out at next "
+//                              << seqExpected << std::endl;
                     break;
                 }
             }
@@ -256,18 +264,18 @@ void ServerEarlyRetrans(UdpSocket &sock, int max, int message[], int windowSize)
         }
         else
         {
-            std::cout << "- received out of order " << message[0] << std::endl;
+//            std::cout << "- received out of order " << message[0] << std::endl;
             msgsReceived[message[0]] = true;
         }
-        std::cout << "sending ack for " << cumulativeAck << std::endl;
+//        std::cout << "sending ack for " << cumulativeAck << std::endl;
         sock.ackTo((char *) &cumulativeAck, sizeof(cumulativeAck));
     }
 
-    std::cout << "((";
-    for (int i = 0; i < MAX; i++)
-    {
-        std::cout << msgsReceived[i] << ", ";
-    }
-    std::cout << "))" << windowSize << std::endl;
+//    std::cout << "((";
+//    for (int i = 0; i < MAX; i++)
+//    {
+//        std::cout << msgsReceived[i] << ", ";
+//    }
+//    std::cout << "))" << windowSize << std::endl;
     return;
 }
