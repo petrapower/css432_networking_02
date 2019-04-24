@@ -208,11 +208,6 @@ int ClientStopWait(UdpSocket &sock, int max, int message[])
 
 int ClientSlidingWindow(UdpSocket &sock, int max, int message[], int windowSize)
 {
-    // TODO: report
-    // throughput #bits/seconds
-    // measure in bits (Mb, Gb, whatever, but not bytes)
-    // 20,000 * 1460 * 8 / time is takes
-
     int msgRetransmitCount = 0;
     int lastReceivedAck = -1;
     int expectedSeqAck = 0;
@@ -221,29 +216,22 @@ int ClientSlidingWindow(UdpSocket &sock, int max, int message[], int windowSize)
     {
         if( expectedSeqAck + windowSize > seqToSend && seqToSend < max)
         {
-//            std::cout << "- Inside window" << std::endl;
             message[0] = seqToSend;
             sock.sendTo((char *) message, MSGSIZE);
 
             if(sock.pollRecvFrom() > 0)
             {
-//                std::cout << "-- Ack received immediately" << std::endl;
                 sock.recvFrom((char *) &lastReceivedAck, sizeof(lastReceivedAck));
                 if(lastReceivedAck == expectedSeqAck)
                 {
-//                    std::cout << "--- Ack received == Ack expected "
-//                              << lastReceivedAck << std::endl;
                     expectedSeqAck++;
                 }
             }
             seqToSend++;
-//            std::cout << "- Increasing seqToSend inside window to "
-//                      << seqToSend << std::endl;
         }
         else
         {
             // timeout
-//            std::cout << "- Inside timeout" << std::endl;
             bool gotAck = false;
             Timer timer;
             timer.Start();
@@ -252,21 +240,15 @@ int ClientSlidingWindow(UdpSocket &sock, int max, int message[], int windowSize)
                 if(sock.pollRecvFrom() > 0)
                 {
                     sock.recvFrom((char *) &lastReceivedAck, sizeof(lastReceivedAck));
-//                    std::cout << "--- Ack received in timeout " << lastReceivedAck
-//                              << std::endl;
                     if(lastReceivedAck >= expectedSeqAck)
                     {
                         expectedSeqAck = lastReceivedAck + 1;
-//                        std::cout << "---- Ack >= expected => next expected is "
-//                                  << expectedSeqAck << std::endl;
                         gotAck = true;
                         break;
                     }
                     else
                     {
-//                        std::cout << "--- Ack < expected => resending "
-//                                  << expectedSeqAck << std::endl;
-                        message[0] = expectedSeqAck; // seqToSend or expectedSeqAck
+                        message[0] = expectedSeqAck;
                         sock.sendTo((char *) message, MSGSIZE);
 //                        std::cout << "--- retransmitting in timeout" << std::endl;
                         msgRetransmitCount++;
@@ -292,12 +274,72 @@ int ClientSlidingWindow(UdpSocket &sock, int max, int message[], int windowSize)
 
 void ServerReliable(UdpSocket &sock, int max, int message[])
 {
-    //Implement this function
+    int ackToSend = -1;
+
+    for (int sequence = 0; sequence < max; )
+    {
+        // get message from client
+        sock.recvFrom((char *) message, MSGSIZE);
+
+        // check if expected message seq number came
+        if(message[0] == sequence)
+        {
+            int ack = message[0];
+            sock.ackTo((char *) &ack, sizeof(ack));
+            sequence++;
+        }
+        // else wait for the same sequence
+
+        if (verbose)
+        {
+            std::cerr << message[0] << std::endl;;
+        }
+    }
     return;
 }
 
 void ServerEarlyRetrans(UdpSocket &sock, int max, int message[], int windowSize)
 {
-    //Implement this function
+    bool msgsReceived[max];
+    int seqExpected = 0;
+    int cumulativeAck = -1;
+
+    // init msg array
+    for(int i = 0; i < max; i++)
+    {
+        msgsReceived[i] = false;
+    }
+
+    // until the expected number of messages is received
+    for( seqExpected = 0; seqExpected < max; )
+    {
+        sock.recvFrom((char *) message, MSGSIZE);
+
+        // did we receive the message in the expected order
+        if(message[0] == seqExpected)
+        {
+            msgsReceived[seqExpected] = true;
+
+            for(int i = seqExpected; i < max; i++)
+            {
+                if(msgsReceived[i])
+                {
+                    cumulativeAck = i;
+                    seqExpected = i + 1;
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+        }
+        else
+        {
+            // message came out of order
+            // mark as received, but don't change expected seq or cumulative ack
+            msgsReceived[message[0]] = true;
+        }
+        sock.ackTo((char *) &cumulativeAck, sizeof(cumulativeAck));
+    }
     return;
-}

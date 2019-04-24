@@ -225,38 +225,25 @@ void ServerEarlyRetrans(UdpSocket &sock, int max, int message[], int windowSize)
         msgsReceived[i] = false;
     }
 
-//    std::cout << std::endl;
-//    std::cout << "WINDOW SIZE " << windowSize << std::endl;
-//    std::cout << std::endl;
-
     // until the expected number of messages is received
     for( seqExpected = 0; seqExpected < max; )
     {
         sock.recvFrom((char *) message, MSGSIZE);
-//        std::cout << "current newest received - start of loop "
-//                  << message[0] << std::endl;
-//        std::cout << "newest sequence expected " << seqExpected << std::endl;
 
+        // did we receive the message in the expected order
         if(message[0] == seqExpected)
         {
-//            std::cout << "- received in order we wanted " << seqExpected << std::endl;
             msgsReceived[seqExpected] = true;
 
             for(int i = seqExpected; i < max; i++)
             {
-//                std::cout << "-- scanning "
-//                          << seqExpected << ", value is "
-//                          << msgsReceived[seqExpected] << std::endl;
                 if(msgsReceived[i])
                 {
-//                    std::cout << "--- found true " << i << std::endl;
                     cumulativeAck = i;
                     seqExpected = i + 1;
                 }
                 else
                 {
-//                    std::cout << "--- found false, breaking out at next "
-//                              << seqExpected << std::endl;
                     break;
                 }
             }
@@ -264,18 +251,11 @@ void ServerEarlyRetrans(UdpSocket &sock, int max, int message[], int windowSize)
         }
         else
         {
-//            std::cout << "- received out of order " << message[0] << std::endl;
+            // message came out of order
+            // mark as received, but don't change expected seq or cumulative ack
             msgsReceived[message[0]] = true;
         }
-//        std::cout << "sending ack for " << cumulativeAck << std::endl;
         sock.ackTo((char *) &cumulativeAck, sizeof(cumulativeAck));
     }
-
-//    std::cout << "((";
-//    for (int i = 0; i < MAX; i++)
-//    {
-//        std::cout << msgsReceived[i] << ", ";
-//    }
-//    std::cout << "))" << windowSize << std::endl;
     return;
 }
